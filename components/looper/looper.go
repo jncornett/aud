@@ -15,8 +15,8 @@ func New(rs aud.ResettableSource) *Source {
 	return &Source{rs}
 }
 
-// Next returns the next sample from the source. If the source is drained,
-// Next returns aud.EOF.
+// Next returns the next sample from the source. Unless the backing source
+// is empty, Next will never return aud.EOF.
 func (s *Source) Next() sample.Point {
 	p := s.ResettableSource.Next()
 	if p == aud.EOF {
