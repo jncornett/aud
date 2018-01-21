@@ -2,31 +2,30 @@ package seq
 
 import (
 	"github.com/jncornett/aud"
+	"github.com/jncornett/aud/fifo"
 	"github.com/jncornett/aud/sample"
 )
 
 // Source concatenates a sequence of sources into a single source.
 type Source struct {
-	Sequence []aud.Source
+	sources *fifo.Q
 }
 
 // New creates a new Source from sources.
 func New(sources ...aud.Source) *Source {
-	return &Source{sources}
+	return &Source{sources: fifo.New(sources...)}
 }
 
 // Next returns the next sample from the source.
-func (s *Source) Next() sample.Point {
-	for _, x := range s.Sequence {
-		p := x.Next()
-		if p == aud.EOF {
-			// FIXME possibly memory inefficient -- the underlying array will
-			// not be garbage collected until the sequence is exhausted.
-			s.Sequence = s.Sequence[1:]
+func (s *Source) Next() (p sample.Point, eof bool) {
+	for s.sources.Len() > 0 {
+		p, eof = s.sources.Peek().Next()
+		if !eof {
+			break
 		}
-		return p
+		s.sources.Pop()
 	}
-	return aud.EOF
+	return
 }
 
 var _ aud.Source = new(Source)

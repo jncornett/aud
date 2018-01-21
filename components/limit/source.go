@@ -7,22 +7,24 @@ import (
 
 // Source implements a transform the clips a source to a finite number of samples.
 type Source struct {
-	aud.Source
-	Points int
+	src       aud.Source
+	remaining int
 }
 
 // New creates a new Source from with n maximum samples.
-func New(s aud.Source, n int) *Source {
-	return &Source{s, n}
+func New(src aud.Source, limit int) *Source {
+	return &Source{src, limit}
 }
 
 // Next returns the next sample from the source.
-func (s *Source) Next() sample.Point {
-	if s.Points <= 0 {
-		return aud.EOF
+func (s *Source) Next() (p sample.Point, eof bool) {
+	if s.remaining <= 0 {
+		eof = true
+		return
 	}
-	s.Points--
-	return s.Source.Next()
+	s.remaining--
+	p, eof = s.src.Next()
+	return
 }
 
 var _ aud.Source = new(Source)
