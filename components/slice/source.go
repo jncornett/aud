@@ -2,29 +2,26 @@ package slice
 
 import (
 	"github.com/jncornett/aud"
-	"github.com/jncornett/aud/sample"
 )
 
-// Source implements a slice-backed sample source.k
+// Source implements a slice-backed sample source.
 type Source struct {
-	samples []sample.Point
+	samples []aud.Sample
 	pos     int
 }
 
 // New creates a new Source.
-func New(samples ...sample.Point) *Source {
+func New(samples ...aud.Sample) *Source {
 	return &Source{samples: samples}
 }
 
 // Next returns the next sample in the slice.
-func (s *Source) Next() (p sample.Point, eof bool) {
-	if s.pos >= len(s.samples) {
+func (src *Source) Next() (s aud.Sample, eof bool) {
+	if src.pos >= len(src.samples) {
 		eof = true
 		return
 	}
-	p = s.samples[s.pos]
-	s.pos++
+	s = src.samples[src.pos]
+	src.pos++
 	return
 }
-
-var _ aud.Source = new(Source)

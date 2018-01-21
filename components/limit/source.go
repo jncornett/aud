@@ -2,29 +2,26 @@ package limit
 
 import (
 	"github.com/jncornett/aud"
-	"github.com/jncornett/aud/sample"
 )
 
 // Source implements a transform the clips a source to a finite number of samples.
 type Source struct {
-	src       aud.Source
+	wrapped   aud.Source
 	remaining int
 }
 
 // New creates a new Source from with n maximum samples.
 func New(src aud.Source, limit int) *Source {
-	return &Source{src, limit}
+	return &Source{wrapped: src, remaining: limit}
 }
 
 // Next returns the next sample from the source.
-func (s *Source) Next() (p sample.Point, eof bool) {
-	if s.remaining <= 0 {
+func (src *Source) Next() (s aud.Sample, eof bool) {
+	if src.remaining <= 0 {
 		eof = true
 		return
 	}
-	s.remaining--
-	p, eof = s.src.Next()
+	src.remaining--
+	s, eof = src.wrapped.Next()
 	return
 }
-
-var _ aud.Source = new(Source)

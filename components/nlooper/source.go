@@ -2,7 +2,6 @@ package nlooper
 
 import (
 	"github.com/jncornett/aud"
-	"github.com/jncornett/aud/sample"
 )
 
 // Source implements a looping audio source that loops for a finite number of
@@ -24,14 +23,12 @@ func New(factory func() aud.Source, limit int) *Source {
 }
 
 // Next returns the next sample from the source.
-func (s *Source) Next() (p sample.Point, eof bool) {
-	p, eof = s.src.Next()
-	if eof && s.remaining > 0 {
-		s.remaining--
-		s.src = s.factory()
-		p, eof = s.src.Next()
+func (src *Source) Next() (s aud.Sample, eof bool) {
+	s, eof = src.src.Next()
+	if eof && src.remaining > 0 {
+		src.remaining--
+		src.src = src.factory()
+		s, eof = src.src.Next()
 	}
 	return
 }
-
-var _ aud.Source = new(Source)

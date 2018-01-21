@@ -6,19 +6,11 @@ A an audio mixer library implemented in pure Go.
 
 ## Design/Notes
 
-- Consider changing interface of aud.Source to
-  ```golang
-  type Source interface {
-      Next() sample.Point
-      EOF() bool
-  }
-  ```
-  This would allow `sample.Point` to represent the entire range of real values at the cost of breaking the nice single-method property of `aud.Source`.
-  Alternatively, we could go the route of `io.Reader` and have multiple return values:
-  ```golang
-  type Source interface {
-      Next() (p sample.Point, eof bool)
-  }
+- aud is a a compositional mixer library. Individual and simple mixer components are composed together to create more complex components.
+- `aud.Source` is the basic building block of a mix. It is a single-method interface for `Next() (s Sample, eof bool)`.
 
-- TODO implement lerp source.
-- TODO flesh out all unit tests.
+## TODO
+
+- implement resampler.
+- implement mixers.
+- add (empty) unit tests for all components.

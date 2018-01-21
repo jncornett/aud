@@ -2,7 +2,6 @@ package looper
 
 import (
 	"github.com/jncornett/aud"
-	"github.com/jncornett/aud/sample"
 )
 
 // Source implements a looping audio source.
@@ -17,13 +16,11 @@ func New(factory func() aud.Source) *Source {
 }
 
 // Next returns the next sample from the source.
-func (s *Source) Next() (p sample.Point, eof bool) {
-	p, eof = s.src.Next()
+func (src *Source) Next() (s aud.Sample, eof bool) {
+	s, eof = src.src.Next()
 	if eof {
-		s.src = s.factory()
-		p, eof = s.Next()
+		src.src = src.factory()
+		s, eof = src.Next()
 	}
 	return
 }
-
-var _ aud.Source = new(Source)
