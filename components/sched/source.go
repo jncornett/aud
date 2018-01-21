@@ -9,16 +9,17 @@ import (
 
 // Source implements a scheduling sample source.
 type Source struct {
-	schedule Schedule
+	schedule []Cue
+	src      aud.Source
 	t        int
 }
 
 // New creates a new sample source.
 func New(cues ...Cue) *Source {
-	sched := make(Schedule, 0, len(cues))
+	sched := make(schedule, 0, len(cues))
 	copy(sched, cues)
 	sort.Sort(sched)
-	return &Source{schedule: sched}
+	return &Source{schedule: sched[1:], src: sched[0]}
 }
 
 // Next returns the sample from the next cued source on a schedule.
