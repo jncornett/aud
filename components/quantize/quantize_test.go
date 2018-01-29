@@ -1,33 +1,54 @@
 package quantize
 
 import (
-	"math"
+	"fmt"
 	"testing"
 
 	"github.com/jncornett/aud"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTo8Bit(t *testing.T) {
-	assert := assert.New(t)
-	assert.Equal(aud.Sample(math.MinInt8+1), To8Bit(-1))
-	assert.Equal(aud.Sample(math.MaxInt8), To8Bit(1))
+func TestTo8BitUnsigned(t *testing.T) {
+	tests := []struct {
+		expected, input aud.Sample
+	}{
+		{expected: 0, input: -1},
+		{expected: 128, input: 0},
+		{expected: 255, input: 1},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v", tt.input), func(t *testing.T) {
+			assert.Equal(t, tt.expected, To8BitUnsigned(tt.input))
+		})
+	}
 }
 
-func TestTo16Bit(t *testing.T) {
-	assert := assert.New(t)
-	assert.Equal(aud.Sample(math.MinInt16+1), To16Bit(-1))
-	assert.Equal(aud.Sample(math.MaxInt16), To16Bit(1))
+func TestTo16BitSigned(t *testing.T) {
+	tests := []struct {
+		expected, input aud.Sample
+	}{
+		{expected: -32768, input: -1},
+		{expected: 0, input: 0},
+		{expected: 32767, input: 1},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v", tt.input), func(t *testing.T) {
+			assert.Equal(t, tt.expected, To16BitSigned(tt.input))
+		})
+	}
 }
 
-func TestTo24Bit(t *testing.T) {
-	assert := assert.New(t)
-	assert.Equal(aud.Sample(MinInt24+1), To24Bit(-1))
-	assert.Equal(aud.Sample(MaxInt24), To24Bit(1))
-}
-
-func TestTo32Bit(t *testing.T) {
-	assert := assert.New(t)
-	assert.Equal(aud.Sample(math.MinInt32+1), To32Bit(-1))
-	assert.Equal(aud.Sample(math.MaxInt32), To32Bit(1))
+func TestTo24BitSigned(t *testing.T) {
+	tests := []struct {
+		expected, input aud.Sample
+	}{
+		{expected: -16777216, input: -1},
+		{expected: 0, input: 0},
+		{expected: 16777215, input: 1},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v", tt.input), func(t *testing.T) {
+			assert.Equal(t, tt.expected, To24BitSigned(tt.input))
+		})
+	}
 }

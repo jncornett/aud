@@ -10,7 +10,6 @@ import (
 	"github.com/jncornett/aud/components/apply"
 	"github.com/jncornett/aud/components/discrete"
 	"github.com/jncornett/aud/components/quantize"
-	"github.com/jncornett/aud/zip"
 	"github.com/jncornett/unpanic"
 
 	"github.com/jncornett/aud"
@@ -30,15 +29,63 @@ var (
 	errInconsistentNumChannels = errors.New("chunks have an inconsistent number of channels")
 )
 
-// Encode ...
-func Encode(w io.Writer, bitDepth int, sampleRate aud.Hz, chunks ...[]aud.Source) (err error) {
+type Stereo struct {
+	Left, Right aud.Source
+}
+
+type EightBitUnsigned struct{}
+
+func (EightBitUnsigned) encodeChunkDataMono(w io.Writer, src aud.Source) {
+	quantized := apply.Map(quantize.To8BitUnsigned, src)
+	casted := discrete.Cast8Bit(quantized)
+	aud.ForEachUInt8(casted, func(v uint8) { writeLE(w, v) })
+}
+
+func (EightBitUnsigned) encodeChunkDataStereo(w io.Writer, left, right aud.Source) {
+	ql := apply.Map(quantize.To8BitUnsigned, left)
+	cl := discrete.Cast8Bit(ql)
+	qr := apply.Map(quantize.To8BitUnsigned, right)
+	cr := discrete.Cast8Bit(qr)
+	aud.ForEachUInt8Pair(cl, cr, func(l, r uint8) {
+		writeLE(w, l)
+		writeLE(w, r)
+	})
+}
+
+type SixteenBitSigned struct{}
+
+func (SixteenBitSigned) encodeChunkDataMono(w io.Writer, src aud.Source) {
+	quantized := apply.Map(quantize.To16BitSigned, src)
+	casted := discrete.Cast16Bit(quantized)
+	aud.ForEachInt16(casted, func(v int16) { writeLE(w, v) })
+}
+
+func (SixteenBitSigned) encodeChunkDataStereo(w io.Writer, left, right aud.Source) {
+	ql := apply.Map(quantize.To16BitSigned, left)
+	cl := discrete.Cast16Bit(ql)
+	qr := apply.Map(quantize.To16BitSigned, right)
+	cr := discrete.Cast16Bit(qr)
+	aud.ForEachInt16Pair(cl, cr, func(l, r int16) {
+		writeLE(w, l)
+		writeLE(w, r)
+	})
+}
+
+func EncodeMono(w io.Writer, bitDepth interface{}, sampleRate aud.Hz, chunks ...aud.Source) (err error) {
 	defer unpanic.Handle(&err)
-	nChannels := getNumChannels(chunks...)
-	// validate bit depth
-	switch bitDepth {
-	case 8, 16, 24, 32:
+	var (
+		encodeChunk func(io.Writer, aud.Source)
+		numBits     int
+	)
+	switch t := bitDepth.(type) {
+	case EightBitUnsigned:
+		encodeChunk = t.encodeChunkDataMono
+		numBits = 8
+	case SixteenBitSigned:
+		encodeChunk = t.encodeChunkDataMono
+		numBits = 16
 	default:
-		panic(fmt.Errorf("invalid bit depth: %d", bitDepth))
+		panic(fmt.Errorf("unknown bit depth: %T", bitDepth))
 	}
 	var (
 		dataBuf  bytes.Buffer
@@ -46,12 +93,44 @@ func Encode(w io.Writer, bitDepth int, sampleRate aud.Hz, chunks ...[]aud.Source
 	)
 	for _, chunk := range chunks {
 		chunkBuf.Reset()
-		writeChunkData(&chunkBuf, bitDepth, chunk)
+		encodeChunk(&chunkBuf, chunk)
 		writeLE(&dataBuf, dataFourCC)
 		writeLE(&dataBuf, uint32(chunkBuf.Len()))
 		copy(&dataBuf, &chunkBuf)
 	}
-	writeFileHeader(w, nChannels, bitDepth, int(sampleRate), dataBuf.Len())
+	writeFileHeader(w, 1, numBits, int(sampleRate), dataBuf.Len())
+	copy(w, &dataBuf)
+	return
+}
+
+func EncodeStereo(w io.Writer, bitDepth interface{}, sampleRate aud.Hz, chunks ...Stereo) (err error) {
+	defer unpanic.Handle(&err)
+	var (
+		encodeChunk func(io.Writer, aud.Source, aud.Source)
+		numBits     int
+	)
+	switch t := bitDepth.(type) {
+	case EightBitUnsigned:
+		encodeChunk = t.encodeChunkDataStereo
+		numBits = 8
+	case SixteenBitSigned:
+		encodeChunk = t.encodeChunkDataStereo
+		numBits = 16
+	default:
+		panic(fmt.Errorf("unknown bit depth: %T", bitDepth))
+	}
+	var (
+		dataBuf  bytes.Buffer
+		chunkBuf bytes.Buffer
+	)
+	for _, chunk := range chunks {
+		chunkBuf.Reset()
+		encodeChunk(&chunkBuf, chunk.Left, chunk.Right)
+		writeLE(&dataBuf, dataFourCC)
+		writeLE(&dataBuf, uint32(chunkBuf.Len()))
+		copy(&dataBuf, &chunkBuf)
+	}
+	writeFileHeader(w, 2, numBits, int(sampleRate), dataBuf.Len())
 	copy(w, &dataBuf)
 	return
 }
@@ -71,56 +150,6 @@ func writeFileHeader(w io.Writer, numChannels, bitDepth, sampleRate, fileContent
 	writeLE(w, uint16(bitDepth))
 }
 
-func writeChunkData(w io.Writer, bitDepth int, chunk []aud.Source) {
-	quantized := make([]aud.Source, 0, len(chunk))
-	// warning: code duplication ahead
-	switch bitDepth {
-	case 8:
-		for _, src := range chunk {
-			quantized = append(quantized, apply.Map(quantize.To8Bit, src))
-		}
-		casted := make([]aud.Int8Source, 0, len(chunk))
-		for _, src := range quantized {
-			casted = append(casted, discrete.Cast8Bit(src))
-		}
-		zipped := zip.NewInt8Zipper(casted...)
-		aud.ForEachInt8Slice(zipped, func(v []int8) { writeLE(w, v) })
-	case 16:
-		for _, src := range chunk {
-			quantized = append(quantized, apply.Map(quantize.To16Bit, src))
-		}
-		casted := make([]aud.Int16Source, 0, len(chunk))
-		for _, src := range quantized {
-			casted = append(casted, discrete.Cast16Bit(src))
-		}
-		zipped := zip.NewInt16Zipper(casted...)
-		aud.ForEachInt16Slice(zipped, func(v []int16) { writeLE(w, v) })
-	case 24:
-		for _, src := range chunk {
-			quantized = append(quantized, apply.Map(quantize.To24Bit, src))
-		}
-		casted := make([]aud.Int32Source, 0, len(chunk))
-		for _, src := range quantized {
-			casted = append(casted, discrete.Cast32Bit(src))
-		}
-		zipped := zip.NewInt32Zipper(casted...)
-		aud.ForEachInt32Slice(zipped, func(v []int32) { writeLE(w, v) })
-	case 32:
-		for _, src := range chunk {
-			quantized = append(quantized, apply.Map(quantize.To32Bit, src))
-		}
-		casted := make([]aud.Int32Source, 0, len(chunk))
-		for _, src := range quantized {
-			casted = append(casted, discrete.Cast32Bit(src))
-		}
-		zipped := zip.NewInt32Zipper(casted...)
-		aud.ForEachInt32Slice(zipped, func(v []int32) { writeLE(w, v) })
-	default:
-		// should not be reachable since we do the validation up-front in Encode
-		panic(fmt.Errorf("invalid bit depth: %d", bitDepth))
-	}
-}
-
 func copy(dst io.Writer, src io.Reader) {
 	_, err := io.Copy(dst, src)
 	if err != nil {
@@ -133,17 +162,4 @@ func writeLE(w io.Writer, v interface{}) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func getNumChannels(chunks ...[]aud.Source) int {
-	if len(chunks) == 0 {
-		return 0
-	}
-	first := len(chunks[0])
-	for _, ck := range chunks[1:] {
-		if first != len(ck) {
-			panic(errInconsistentNumChannels)
-		}
-	}
-	return first
 }

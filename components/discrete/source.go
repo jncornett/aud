@@ -12,9 +12,9 @@ func Cast8Bit(src aud.Source) *Casted8Bit {
 	return &Casted8Bit{src}
 }
 
-func (c *Casted8Bit) Next() (i int8, eof bool) {
+func (c *Casted8Bit) Next() (u uint8, eof bool) {
 	s, eof := c.Source.Next()
-	return int8(s), eof
+	return uint8(s), eof
 }
 
 type Casted16Bit struct {
@@ -28,17 +28,4 @@ func Cast16Bit(src aud.Source) *Casted16Bit {
 func (c *Casted16Bit) Next() (i int16, eof bool) {
 	s, eof := c.Source.Next()
 	return int16(s), eof
-}
-
-type Casted32Bit struct {
-	aud.Source
-}
-
-func Cast32Bit(src aud.Source) *Casted32Bit {
-	return &Casted32Bit{src}
-}
-
-func (c *Casted32Bit) Next() (i int32, eof bool) {
-	s, eof := c.Source.Next()
-	return int32(s), eof
 }

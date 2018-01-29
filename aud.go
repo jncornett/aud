@@ -15,34 +15,14 @@ type Sample float64
 // Zero represents the zero valued sample.
 const Zero Sample = 0
 
-// Int8Source represents an int8 sample source.
-type Int8Source interface {
-	Next() (s int8, eof bool)
+// UInt8Source represents an uint8 sample source.
+type UInt8Source interface {
+	Next() (s uint8, eof bool)
 }
 
 // Int16Source represents an int16 sample source.
 type Int16Source interface {
 	Next() (s int16, eof bool)
-}
-
-// Int32Source repesents an int32 sample source.
-type Int32Source interface {
-	Next() (s int32, eof bool)
-}
-
-// Int8Zipped represents bytes in an int8 channel set.
-type Int8Zipped interface {
-	Next() (s []int8, eof bool)
-}
-
-// Int16Zipped represents bytes in an int8 channel set.
-type Int16Zipped interface {
-	Next() (s []int16, eof bool)
-}
-
-// Int32Zipped represents bytes in an int8 channel set.
-type Int32Zipped interface {
-	Next() (s []int32, eof bool)
 }
 
 // ForEach applies a function to each sample in a Source.
@@ -92,14 +72,33 @@ func Min(src Source) Sample {
 	return min
 }
 
-// ForEachInt8 applies a function to each sample in an Int8Source.
-func ForEachInt8(src Int8Source, fn func(int8)) {
+// ForEachUInt8 applies a function to each sample in a UInt8Source.
+func ForEachUInt8(src UInt8Source, fn func(uint8)) {
 	for {
 		s, eof := src.Next()
 		if eof {
 			break
 		}
 		fn(s)
+	}
+}
+
+// ForEachUInt8Pair applies a function to a pair of UInt8Source objects.
+func ForEachUInt8Pair(left, right UInt8Source, fn func(uint8, uint8)) {
+	for {
+		eofCount := 0
+		left, eof := left.Next()
+		if eof {
+			eofCount++
+		}
+		right, eof := right.Next()
+		if eof {
+			eofCount++
+		}
+		if eofCount == 2 {
+			break
+		}
+		fn(left, right)
 	}
 }
 
@@ -114,46 +113,21 @@ func ForEachInt16(src Int16Source, fn func(int16)) {
 	}
 }
 
-// ForEachInt32 applies a function to each sample in an Int32Source.
-func ForEachInt32(src Int32Source, fn func(int32)) {
+// ForEachInt16Pair applies a function to a pair of Int16Source objects.
+func ForEachInt16Pair(left, right Int16Source, fn func(int16, int16)) {
 	for {
-		s, eof := src.Next()
+		eofCount := 0
+		left, eof := left.Next()
 		if eof {
+			eofCount++
+		}
+		right, eof := right.Next()
+		if eof {
+			eofCount++
+		}
+		if eofCount == 2 {
 			break
 		}
-		fn(s)
-	}
-}
-
-// ForEachInt8Slice applies a function to each sample in an Int8Zipped.
-func ForEachInt8Slice(src Int8Zipped, fn func([]int8)) {
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
-		fn(s)
-	}
-}
-
-// ForEachInt16Slice applies a function to each sample in an Int16Zipped.
-func ForEachInt16Slice(src Int16Zipped, fn func([]int16)) {
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
-		fn(s)
-	}
-}
-
-// ForEachInt32Slice applies a function to each sample in an Int32Zipped.
-func ForEachInt32Slice(src Int32Zipped, fn func([]int32)) {
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
-		fn(s)
+		fn(left, right)
 	}
 }

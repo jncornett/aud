@@ -15,24 +15,28 @@ const (
 	MinInt24 = -1 << 23
 )
 
-// To8Bit normalizes a number from the range [-1, 1] to [-127, 128] as integers.
-func To8Bit(s aud.Sample) aud.Sample {
-	return clip(round(s*128) + 128)
+// To8BitUnsigned normalizes a number from the range [-1, 1] to [-127, 128] as integers.
+func To8BitUnsigned(s aud.Sample) aud.Sample {
+	if s <= 0 {
+		return round(clip(s)*128 + 128)
+	}
+	return round(clip(s)*128 + 127)
 }
 
-// To16Bit normalizes a number from the range [-1, 1] to [-32767, 32768] as integers.
-func To16Bit(s aud.Sample) aud.Sample {
-	return round(s * math.MaxInt16)
+// To16BitSigned normalizes a number from the range [-1, 1] to [-32767, 32768] as integers.
+func To16BitSigned(s aud.Sample) aud.Sample {
+	if s <= 0 {
+		return round(clip(s) * 32768)
+	}
+	return round(clip(s) * 32767)
 }
 
-// To24Bit normalizes a number from the range [-1, 1] to [-8388607, 8388608] as integers.
-func To24Bit(s aud.Sample) aud.Sample {
-	return round(s * MaxInt24)
-}
-
-// To32Bit normalizes a number from the range [-1, 1] to [-2147483647, 2147483648] as integers.
-func To32Bit(s aud.Sample) aud.Sample {
-	return round(s * math.MaxInt32)
+// To24BitSigned normalizes a number from the range [-1, 1] to [-8388607, 8388608] as integers.
+func To24BitSigned(s aud.Sample) aud.Sample {
+	if s <= 0 {
+		return round(clip(s) * 16777216)
+	}
+	return round(clip(s) * 16777215)
 }
 
 func round(s aud.Sample) aud.Sample {
