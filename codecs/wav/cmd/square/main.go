@@ -33,10 +33,10 @@ func main() {
 	var err error
 	switch *bitDepth {
 	case 8:
-		err = wav.EncodeMono(os.Stdout, wav.EightBitUnsigned{}, aud.Hz(*sampleRate), master)
+		err = wav.EncodeMono(os.Stdout, wav.EightBitUnsigned, aud.Hz(*sampleRate), master)
 	case 16:
 		log.Println("16 bit signed")
-		err = wav.EncodeMono(os.Stdout, wav.SixteenBitSigned{}, aud.Hz(*sampleRate), master)
+		err = wav.EncodeMono(os.Stdout, wav.SixteenBitSigned, aud.Hz(*sampleRate), master)
 	default:
 		panic(fmt.Errorf("invalid bit depth: %d", *bitDepth))
 	}

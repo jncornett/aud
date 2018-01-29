@@ -3,8 +3,6 @@ package wav
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 
 	"github.com/jncornett/aud/components/apply"
@@ -22,26 +20,34 @@ const (
 )
 
 var (
-	riffFourCC                 = [4]byte{'R', 'I', 'F', 'F'}
-	waveFourCC                 = [4]byte{'W', 'A', 'V', 'E'}
-	fmtFourCC                  = [4]byte{'f', 'm', 't', ' '}
-	dataFourCC                 = [4]byte{'d', 'a', 't', 'a'}
-	errInconsistentNumChannels = errors.New("chunks have an inconsistent number of channels")
+	riffFourCC = [4]byte{'R', 'I', 'F', 'F'}
+	waveFourCC = [4]byte{'W', 'A', 'V', 'E'}
+	fmtFourCC  = [4]byte{'f', 'm', 't', ' '}
+	dataFourCC = [4]byte{'d', 'a', 't', 'a'}
+
+	EightBitUnsigned eightBitUnsigned
+	SixteenBitSigned sixteenBitSigned
 )
 
 type Stereo struct {
 	Left, Right aud.Source
 }
 
-type EightBitUnsigned struct{}
+type BitDepth interface {
+	EncodeMono(io.Writer, aud.Source)
+	EncodeStereo(io.Writer, aud.Source, aud.Source)
+	Bits() int
+}
 
-func (EightBitUnsigned) encodeChunkDataMono(w io.Writer, src aud.Source) {
+type eightBitUnsigned struct{}
+
+func (eightBitUnsigned) EncodeMono(w io.Writer, src aud.Source) {
 	quantized := apply.Map(quantize.To8BitUnsigned, src)
 	casted := discrete.Cast8Bit(quantized)
 	aud.ForEachUInt8(casted, func(v uint8) { writeLE(w, v) })
 }
 
-func (EightBitUnsigned) encodeChunkDataStereo(w io.Writer, left, right aud.Source) {
+func (eightBitUnsigned) EncodeStereo(w io.Writer, left, right aud.Source) {
 	ql := apply.Map(quantize.To8BitUnsigned, left)
 	cl := discrete.Cast8Bit(ql)
 	qr := apply.Map(quantize.To8BitUnsigned, right)
@@ -52,15 +58,19 @@ func (EightBitUnsigned) encodeChunkDataStereo(w io.Writer, left, right aud.Sourc
 	})
 }
 
-type SixteenBitSigned struct{}
+func (eightBitUnsigned) Bits() int {
+	return 8
+}
 
-func (SixteenBitSigned) encodeChunkDataMono(w io.Writer, src aud.Source) {
+type sixteenBitSigned struct{}
+
+func (sixteenBitSigned) EncodeMono(w io.Writer, src aud.Source) {
 	quantized := apply.Map(quantize.To16BitSigned, src)
 	casted := discrete.Cast16Bit(quantized)
 	aud.ForEachInt16(casted, func(v int16) { writeLE(w, v) })
 }
 
-func (SixteenBitSigned) encodeChunkDataStereo(w io.Writer, left, right aud.Source) {
+func (sixteenBitSigned) EncodeStereo(w io.Writer, left, right aud.Source) {
 	ql := apply.Map(quantize.To16BitSigned, left)
 	cl := discrete.Cast16Bit(ql)
 	qr := apply.Map(quantize.To16BitSigned, right)
@@ -71,66 +81,42 @@ func (SixteenBitSigned) encodeChunkDataStereo(w io.Writer, left, right aud.Sourc
 	})
 }
 
-func EncodeMono(w io.Writer, bitDepth interface{}, sampleRate aud.Hz, chunks ...aud.Source) (err error) {
+func (sixteenBitSigned) Bits() int {
+	return 16
+}
+
+func EncodeMono(w io.Writer, depth BitDepth, sampleRate aud.Hz, chunks ...aud.Source) (err error) {
 	defer unpanic.Handle(&err)
-	var (
-		encodeChunk func(io.Writer, aud.Source)
-		numBits     int
-	)
-	switch t := bitDepth.(type) {
-	case EightBitUnsigned:
-		encodeChunk = t.encodeChunkDataMono
-		numBits = 8
-	case SixteenBitSigned:
-		encodeChunk = t.encodeChunkDataMono
-		numBits = 16
-	default:
-		panic(fmt.Errorf("unknown bit depth: %T", bitDepth))
-	}
 	var (
 		dataBuf  bytes.Buffer
 		chunkBuf bytes.Buffer
 	)
 	for _, chunk := range chunks {
 		chunkBuf.Reset()
-		encodeChunk(&chunkBuf, chunk)
+		depth.EncodeMono(&chunkBuf, chunk)
 		writeLE(&dataBuf, dataFourCC)
 		writeLE(&dataBuf, uint32(chunkBuf.Len()))
 		copy(&dataBuf, &chunkBuf)
 	}
-	writeFileHeader(w, 1, numBits, int(sampleRate), dataBuf.Len())
+	writeFileHeader(w, 1, depth.Bits(), int(sampleRate), dataBuf.Len())
 	copy(w, &dataBuf)
 	return
 }
 
-func EncodeStereo(w io.Writer, bitDepth interface{}, sampleRate aud.Hz, chunks ...Stereo) (err error) {
+func EncodeStereo(w io.Writer, depth BitDepth, sampleRate aud.Hz, chunks ...Stereo) (err error) {
 	defer unpanic.Handle(&err)
-	var (
-		encodeChunk func(io.Writer, aud.Source, aud.Source)
-		numBits     int
-	)
-	switch t := bitDepth.(type) {
-	case EightBitUnsigned:
-		encodeChunk = t.encodeChunkDataStereo
-		numBits = 8
-	case SixteenBitSigned:
-		encodeChunk = t.encodeChunkDataStereo
-		numBits = 16
-	default:
-		panic(fmt.Errorf("unknown bit depth: %T", bitDepth))
-	}
 	var (
 		dataBuf  bytes.Buffer
 		chunkBuf bytes.Buffer
 	)
 	for _, chunk := range chunks {
 		chunkBuf.Reset()
-		encodeChunk(&chunkBuf, chunk.Left, chunk.Right)
+		depth.EncodeStereo(&chunkBuf, chunk.Left, chunk.Right)
 		writeLE(&dataBuf, dataFourCC)
 		writeLE(&dataBuf, uint32(chunkBuf.Len()))
 		copy(&dataBuf, &chunkBuf)
 	}
-	writeFileHeader(w, 2, numBits, int(sampleRate), dataBuf.Len())
+	writeFileHeader(w, 2, depth.Bits(), int(sampleRate), dataBuf.Len())
 	copy(w, &dataBuf)
 	return
 }
