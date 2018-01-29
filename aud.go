@@ -5,8 +5,8 @@ package aud
 // sources.
 type Source interface {
 	// Next should be implemented to return the next data point from a Source.
-	// If the source is drained, eof will be true.
-	Next() (s Sample, eof bool)
+	Next() Sample
+	HasNext() bool
 }
 
 // Sample represents a sequential datapoint in the sample space.
@@ -17,36 +17,31 @@ const Zero Sample = 0
 
 // UInt8Source represents an uint8 sample source.
 type UInt8Source interface {
-	Next() (s uint8, eof bool)
+	Next() uint8
+	HasNext() bool
 }
 
 // Int16Source represents an int16 sample source.
 type Int16Source interface {
-	Next() (s int16, eof bool)
+	Next() int16
+	HasNext() bool
 }
 
 // ForEach applies a function to each sample in a Source.
 func ForEach(src Source, fn func(Sample)) {
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
-		fn(s)
+	for src.HasNext() {
+		fn(src.Next())
 	}
 }
 
 // Max finds the maximum sample value of a Source.
 func Max(src Source) Sample {
-	max, eof := src.Next()
-	if eof {
-		return max
+	if !src.HasNext() {
+		return Zero
 	}
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
+	max := src.Next()
+	for src.HasNext() {
+		s := src.Next()
 		if s > max {
 			max = s
 		}
@@ -56,15 +51,12 @@ func Max(src Source) Sample {
 
 // Min finds the minimum sample value of a Source.
 func Min(src Source) Sample {
-	min, eof := src.Next()
-	if eof {
-		return min
+	if !src.HasNext() {
+		return Zero
 	}
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
+	min := src.Next()
+	for src.HasNext() {
+		s := src.Next()
 		if s < min {
 			min = s
 		}
@@ -74,60 +66,28 @@ func Min(src Source) Sample {
 
 // ForEachUInt8 applies a function to each sample in a UInt8Source.
 func ForEachUInt8(src UInt8Source, fn func(uint8)) {
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
-		fn(s)
+	for src.HasNext() {
+		fn(src.Next())
 	}
 }
 
 // ForEachUInt8Pair applies a function to a pair of UInt8Source objects.
 func ForEachUInt8Pair(left, right UInt8Source, fn func(uint8, uint8)) {
-	for {
-		eofCount := 0
-		left, eof := left.Next()
-		if eof {
-			eofCount++
-		}
-		right, eof := right.Next()
-		if eof {
-			eofCount++
-		}
-		if eofCount == 2 {
-			break
-		}
-		fn(left, right)
+	for left.HasNext() || right.HasNext() {
+		fn(left.Next(), right.Next())
 	}
 }
 
 // ForEachInt16 applies a function to each sample in an Int16Source.
 func ForEachInt16(src Int16Source, fn func(int16)) {
-	for {
-		s, eof := src.Next()
-		if eof {
-			break
-		}
-		fn(s)
+	for src.HasNext() {
+		fn(src.Next())
 	}
 }
 
 // ForEachInt16Pair applies a function to a pair of Int16Source objects.
 func ForEachInt16Pair(left, right Int16Source, fn func(int16, int16)) {
-	for {
-		eofCount := 0
-		left, eof := left.Next()
-		if eof {
-			eofCount++
-		}
-		right, eof := right.Next()
-		if eof {
-			eofCount++
-		}
-		if eofCount == 2 {
-			break
-		}
-		fn(left, right)
+	for left.HasNext() || right.HasNext() {
+		fn(left.Next(), right.Next())
 	}
 }

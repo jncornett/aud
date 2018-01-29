@@ -15,18 +15,22 @@ func New(sources ...aud.Source) *Mixer {
 }
 
 // Next returns the next sample from the source.
-func (src *Mixer) Next() (s aud.Sample, eof bool) {
-	eofCount := 0
-	for _, source := range src.sources {
-		thisVal, thisEOF := source.Next()
-		if thisEOF {
-			eofCount++
+func (m *Mixer) Next() aud.Sample {
+	if len(m.sources) == 0 {
+		return aud.Zero
+	}
+	sum := aud.Zero
+	for _, src := range m.sources {
+		sum += src.Next()
+	}
+	return sum / aud.Sample(len(m.sources))
+}
+
+func (m *Mixer) HasNext() bool {
+	for _, src := range m.sources {
+		if src.HasNext() {
+			return true
 		}
-		s += thisVal
 	}
-	if len(src.sources) > 0 {
-		eof = eofCount == len(src.sources)
-		s /= aud.Sample(len(src.sources))
-	}
-	return
+	return false
 }

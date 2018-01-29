@@ -17,15 +17,22 @@ func New(sources ...aud.Source) *Mixer {
 }
 
 // Next returns the next sample from the source.
-func (src *Mixer) Next() (s aud.Sample, eof bool) {
-	eof = true
-	for _, source := range src.sources {
-		thisVal, thisEOF := source.Next()
-		if !thisEOF {
-			// signifies that at least one source is not empty.
-			eof = false
-		}
-		s = aud.Sample(math.Max(float64(s), float64(thisVal)))
+func (m *Mixer) Next() aud.Sample {
+	if len(m.sources) == 0 {
+		return aud.Zero
 	}
-	return
+	max := m.sources[0].Next()
+	for _, src := range m.sources[1:] {
+		max = aud.Sample(math.Max(float64(max), float64(src.Next())))
+	}
+	return max
+}
+
+func (m *Mixer) HasNext() bool {
+	for _, src := range m.sources {
+		if src.HasNext() {
+			return true
+		}
+	}
+	return false
 }

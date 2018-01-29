@@ -8,7 +8,7 @@ import (
 // times.
 type Source struct {
 	factory   func() aud.Source
-	src       aud.Source
+	cur       aud.Source
 	remaining int
 }
 
@@ -17,18 +17,25 @@ type Source struct {
 func New(factory func() aud.Source, limit int) *Source {
 	return &Source{
 		factory:   factory,
-		src:       factory(),
+		cur:       factory(),
 		remaining: limit,
 	}
 }
 
 // Next returns the next sample from the source.
-func (src *Source) Next() (s aud.Sample, eof bool) {
-	s, eof = src.src.Next()
-	if eof && src.remaining > 0 {
+func (src *Source) Next() (s aud.Sample) {
+	if !src.cur.HasNext() && src.remaining > 0 {
 		src.remaining--
-		src.src = src.factory()
-		s, eof = src.src.Next()
+		src.cur = src.factory()
 	}
+	s = src.cur.Next()
 	return
+}
+
+func (src *Source) HasNext() bool {
+	if !src.cur.HasNext() && src.remaining > 0 {
+		src.remaining--
+		src.cur = src.factory()
+	}
+	return src.cur.HasNext()
 }

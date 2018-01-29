@@ -16,12 +16,15 @@ func New(samples ...aud.Sample) *Source {
 }
 
 // Next returns the next sample in the slice.
-func (src *Source) Next() (s aud.Sample, eof bool) {
+func (src *Source) Next() (s aud.Sample) {
 	if src.pos >= len(src.samples) {
-		eof = true
 		return
 	}
 	s = src.samples[src.pos]
 	src.pos++
 	return
+}
+
+func (src *Source) HasNext() bool {
+	return src.pos < len(src.samples)
 }

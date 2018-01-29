@@ -34,8 +34,12 @@ func Square(off, on int, min, max aud.Sample) *Gen {
 	}
 }
 
-func (g *Gen) Next() (s aud.Sample, eof bool) {
+func (g *Gen) Next() (s aud.Sample) {
 	s = g.Func(g.t)
 	g.t++
 	return
+}
+
+func (g *Gen) HasNext() bool {
+	return true
 }

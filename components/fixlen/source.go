@@ -8,22 +8,25 @@ import (
 // length and fills in that length with sample.Zero if the underlying
 // source is drained.
 type Source struct {
-	wrapped   aud.Source
+	aud.Source
 	remaining int
 }
 
 // New creates a new source with length.
 func New(src aud.Source, length int) *Source {
-	return &Source{wrapped: src, remaining: length}
+	return &Source{src, length}
 }
 
 // Next returns the next sample in the sequence.
-func (src *Source) Next() (s aud.Sample, eof bool) {
-	if src.remaining == 0 {
-		eof = true
+func (src *Source) Next() (s aud.Sample) {
+	if src.remaining <= 0 {
 		return
 	}
 	src.remaining--
-	s, _ = src.wrapped.Next()
+	s = src.Source.Next()
 	return
+}
+
+func (src *Source) HasNext() bool {
+	return src.remaining > 0
 }

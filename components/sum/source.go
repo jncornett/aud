@@ -15,15 +15,18 @@ func New(sources ...aud.Source) *Mixer {
 }
 
 // Next returns the next sample from the source.
-func (src *Mixer) Next() (s aud.Sample, eof bool) {
-	eof = true
-	for _, source := range src.sources {
-		thisVal, thisEOF := source.Next()
-		if !thisEOF {
-			// signifies that at least one source is not empty.
-			eof = false
-		}
-		s += thisVal
+func (m *Mixer) Next() (s aud.Sample) {
+	for _, src := range m.sources {
+		s += src.Next()
 	}
 	return
+}
+
+func (m *Mixer) HasNext() bool {
+	for _, src := range m.sources {
+		if src.HasNext() {
+			return true
+		}
+	}
+	return false
 }

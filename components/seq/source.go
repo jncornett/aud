@@ -15,13 +15,18 @@ func New(sources ...aud.Source) *Source {
 }
 
 // Next returns the next sample from the source.
-func (src *Source) Next() (s aud.Sample, eof bool) {
+func (src *Source) Next() (s aud.Sample) {
 	for len(src.sources) > 0 {
-		s, eof = src.sources[0].Next()
-		if !eof {
-			break
+		cur := src.sources[0]
+		if cur.HasNext() {
+			s = cur.Next()
+			return
 		}
 		src.sources = src.sources[1:]
 	}
 	return
+}
+
+func (src *Source) HasNext() bool {
+	return len(src.sources) > 0
 }
