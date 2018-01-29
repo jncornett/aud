@@ -9,6 +9,7 @@ import (
 
 	"github.com/jncornett/aud"
 	"github.com/jncornett/aud/codecs/wav"
+	"github.com/jncornett/aud/components/attenuate"
 	"github.com/jncornett/aud/components/fixlen"
 	"github.com/jncornett/aud/generators/function"
 )
@@ -26,12 +27,15 @@ func main() {
 	log.Println("Number of samples:", numSamples)
 	cycle := int(aud.Hz(*sampleRate) / aud.Hz(*frequency))
 	gen := function.Square(cycle/2, cycle/2, aud.Sample(-1), aud.Sample(1))
-	master := fixlen.New(gen, numSamples)
+	var master aud.Source
+	master = fixlen.New(gen, numSamples)
+	master = attenuate.New(master, 0.8)
 	var err error
 	switch *bitDepth {
 	case 8:
 		err = wav.EncodeMono(os.Stdout, wav.EightBitUnsigned{}, aud.Hz(*sampleRate), master)
 	case 16:
+		log.Println("16 bit signed")
 		err = wav.EncodeMono(os.Stdout, wav.SixteenBitSigned{}, aud.Hz(*sampleRate), master)
 	default:
 		panic(fmt.Errorf("invalid bit depth: %d", *bitDepth))
